@@ -1,0 +1,60 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    networks:
+      - airflow
+
+  redis:
+    image: redis:latest
+    networks:
+      - airflow
+
+  airflow-webserver:
+    image: apache/airflow:2.7.3
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./airflow_plugins:/opt/airflow/plugins
+    command: webserver
+    networks:
+      - airflow
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.3
+    restart: always
+    depends_on:
+      - airflow-webserver
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./airflow_plugins:/opt/airflow/plugins
+    command: scheduler
+    networks:
+      - airflow
+
+volumes:
+  postgres-db-volume:
+
+networks:
+  airflow:
+    driver: bridge

@@ -1,0 +1,11 @@
+CREATE OR REPLACE STORAGE INTEGRATION s3_integration
+    TYPE = EXTERNAL_STAGE
+    STORAGE_PROVIDER = 'S3'
+    ENABLED = TRUE
+    STORAGE_AWS_ROLE_ARN = '<YOUR_AWS_ROLE>'
+    STORAGE_ALLOWED_LOCATIONS = ('s3://transformed/odw/');
+
+CREATE OR REPLACE STAGE odw_stage
+    STORAGE_INTEGRATION = s3_integration
+    URL = 's3://transformed/odw/'
+    FILE_FORMAT = (TYPE = PARQUET);
