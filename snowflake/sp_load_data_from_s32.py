@@ -50,33 +50,29 @@ def main(session: Session) -> str:
                 row_count = session.table(f"raw.{table_name}").count()
 
                 # Log success
-                session.table("raw.load_audit_log").insert([
-                    {
-                        "table_name": table_name,
-                        "file_path": file_path,
-                        "status": "SUCCESS",
-                        "message": "Loaded with schema inferred",
-                        "start_time": start_time,
-                        "end_time": datetime.datetime.now(),
-                        "row_count_loaded": row_count,
-                        "retry_count": retry_count
-                    }
-                ])
+session.sql(f"""
+    INSERT INTO raw.load_audit_log (
+        table_name, file_path, status, message, start_time, end_time, row_count_loaded, retry_count
+    )
+    VALUES (
+        '{table_name}', '{file_path}', 'SUCCESS', 'Loaded with schema inferred',
+        TO_TIMESTAMP_LTZ('{start_time}'), CURRENT_TIMESTAMP(), {row_count}, {retry_count}
+    );
+""").collect()
                 break  # Success
 
             except Exception as e:
                 retry_count += 1
                 if retry_count > max_retries:
-                    session.table("raw.load_audit_log").insert([
-                        {
-                            "table_name": table_name,
-                            "file_path": file_path,
-                            "status": "FAILED",
-                            "message": str(e),
-                            "start_time": start_time,
-                            "end_time": datetime.datetime.now(),
-                            "row_count_loaded": None,
-                            "retry_count": retry_count
+session.sql(f"""
+    INSERT INTO raw.load_audit_log (
+        table_name, file_path, status, message, start_time, end_time, row_count_loaded, retry_count
+    )
+    VALUES (
+        '{table_name}', '{file_path}', 'FAILED', $$ {str(e)} $$,
+        TO_TIMESTAMP_LTZ('{start_time}'), CURRENT_TIMESTAMP(), NULL, {retry_count}
+    );
+""").collect()"retry_count": retry_count
                         }
                     ])
     return "All tables processed."
